@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 #define maxLen 100
+
+int matchedListIndex = 0;
 
 typedef struct searchConditions
 { // Used to store search conditions from input
@@ -15,6 +18,135 @@ typedef struct line
     int _id;
 } line;
 
+char *Lower(char *s)
+{
+    for (int i = 0; i < strlen(s); i++)
+    {
+        s[i] = tolower(s[i]);
+    }
+    return s;
+}
+
+// Compare one condition to one line, return true if condition is a match
+bool isMatch(char *searchCondition, char *line)
+{
+    char fieldName = searchCondition[0];
+    char comparisonOp = searchCondition[2];
+
+    char tmpStr[100];                                                  // C < 12
+    strncpy(tmpStr, &searchCondition[4], strlen(searchCondition) - 3); // Used to store sub string for value
+    int value = atoi(tmpStr);
+
+    const char *ptr = strchr(line, fieldName); // Get pointer to first occurence of fieldname
+    int index = -1;                            // Stores index of first occurence of a field name
+    if (ptr)
+    {
+        index = (ptr - line) + 3; // The field name is present, get the index
+    }
+    else
+    {
+        // printf("No val\n"); // If the field name isnt present, then return
+        //   return false
+        return false;
+    }
+
+    // Get field value from line
+    char strVal[100] = "";
+    for (int i = 0; i < strlen(line); i++)
+    {
+        if (isdigit(line[index + i]))
+        {
+            strVal[i] = line[index + i];
+        }
+        else
+        {
+            break;
+        }
+    }
+    // printf("strVal: %s\n", strVal);
+    int numVal = atoi(strVal);
+    // printf("numVal: %d, strVal length: %d\n", numVal, strlen(strVal));
+
+    switch (comparisonOp)
+    {
+    case '>':
+        if (numVal > value)
+            return true;
+        break;
+    case '<':
+        if (numVal < value)
+            return true;
+        break;
+    case '=':
+        if (numVal == value)
+            return true;
+        break;
+    }
+
+    return false;
+}
+
+line *matchResults(searchConditions *sc, line *lines, int classification, size_t scSize, size_t linesSize)
+{
+    line *list = malloc(sizeof(line) * 10000);
+    int index = 0;
+
+    // "B: 390 Y: 1 C: 5 D: 1 F: 127700"
+    // "B > 350"
+    // "C < 12"
+
+    // for(int i = 0; i < linesSize; i++){
+    //    printf("%s\n", lines[i].data);
+    // }
+
+    for (int i = 0; i < linesSize; i++) // Scan through each line
+    {
+        bool flag = true;
+        for (int j = 0; j < scSize; j++) // Scan through each search condition
+        {
+            if (classification == -1) // If no security level is provided
+            {
+                if (isMatch(sc[j].cond, lines[i].data) == false)
+                {
+                    flag = false;
+                }
+            }
+            else // If security level is provided
+            {
+                // Build security classification string (Format: Y < 3)
+                char security[10] = "Y < ";
+                char buffer[10];
+                snprintf(buffer, 10, "%d", classification + 1);
+                strncat(security, buffer, 10);
+
+                // printf("security: %s\n", security);
+
+                if ((isMatch(sc[j].cond, lines[i].data) == false))
+                {
+                    flag = false;
+                }
+                else
+                {
+                    if (isMatch(security, lines[i].data) == false)
+                    {
+                        flag = false;
+                    }
+                }
+            }
+        }
+        if (flag == true) // If all search conditions were true, then add the line to list
+        {
+            strcpy(list[index].data, lines[i].data);
+            list[index]._id = lines[i]._id;
+            index++;
+        }
+    }
+
+    matchedListIndex = index;
+
+    return list;
+}
+
 int main()
 {
     char *fileName = "data.txt";
@@ -23,10 +155,12 @@ int main()
     line *lines = malloc(sizeof(line) * maxSize);
     char tmp[maxLen]; // Temporary string used to hold input strings
     char operation[maxLen] = "";
-    int securityLevel;
+    int securityLevel = -1;
     bool isFinished = false;
     searchConditions *sc = malloc(sizeof(searchConditions) * maxSize); // Used to store search conditions
-    char projections[maxLen] = ""; // Used to store fields to project
+    char projections[maxLen] = "";                                     // Used to store fields to project
+
+    strcpy(sc[0].cond, "NULL"); // Assign to null to check if search conditions are passed or not
 
     FILE *file = fopen(fileName, "r");
     if (file == NULL)
@@ -35,10 +169,10 @@ int main()
         return 1;
     }
 
-    char tmpStr[500]; // Temporarily stores string for fgets
-    int index = 0;    // Index for accessing array elements
-    while (fgets(tmpStr, 500, file))
-    { // Read contents of file into array
+    char tmpStr[500];                // Temporarily stores string for fgets
+    int index = 0;                   // Index for accessing array elements
+    while (fgets(tmpStr, 500, file)) // Read contents of file into array
+    {
         if (currSize >= maxSize)
         {
             line *tmp = malloc(sizeof(line) * maxSize);
@@ -58,16 +192,14 @@ int main()
                 lines[z]._id = tmp[z]._id;
             }
         }
-
+        tmpStr[strlen(tmpStr) - 1] = '\0'; // Remove newline character from string
         strcpy(lines[index].data, tmpStr); // Copy string buffer to lines[i].data
         lines[index]._id = index + 1;      // Set _id for lines[i]
         currSize++;
         index++;
     }
 
-    // for(int i = 0; i < currSize; i++) { // Print contents of lines
-    //     printf("%d:  %s", lines[i]._id, lines[i].data);
-    // }
+    int linesSize = currSize; // Save size of lines array
 
     // Reset maxSize and currSize
     maxSize = 10;
@@ -80,35 +212,64 @@ int main()
     if (strlen(tmp) > 4)        // If tmp length > 4, then a security level was included. Read the security level
         securityLevel = tmp[strlen(tmp) - 1] - '0';
 
-    while(fgets(tmp, maxLen, stdin)) { // Read search conditions and projections
-      tmp[strlen(tmp) - 1] = '\0'; // Remove newline character
-      if(strchr(tmp, ';') != NULL) {
-         tmp[strlen(tmp) - 1] = '\0'; // Remove ';' from end of string
-         strcpy(projections, tmp);
-         break;
-      }
-      if(currSize >= maxSize) { // If sc is filled, double its size
-         searchConditions *tmpSC = malloc(sizeof(searchConditions) * maxSize);
-         maxSize *= 2;
-         for(int i = 0; i < currSize; i++) {
-            strcpy(tmpSC[i].cond, sc[i].cond);
-         }
+    while (fgets(tmp, maxLen, stdin)) // Read search conditions and projections
+    {
+        tmp[strlen(tmp) - 1] = '\0'; // Remove newline character
+        if (strchr(tmp, ';') != NULL)
+        {
+            tmp[strlen(tmp) - 1] = '\0'; // Remove ';' from end of string
+            strcpy(projections, tmp);
+            break;
+        }
+        if (currSize >= maxSize)
+        { // If sc is filled, double its size
+            searchConditions *tmpSC = malloc(sizeof(searchConditions) * maxSize);
+            maxSize *= 2;
+            for (int i = 0; i < currSize; i++)
+            {
+                strcpy(tmpSC[i].cond, sc[i].cond);
+            }
 
-         sc = realloc(sc, sizeof(searchConditions) * maxSize);
+            sc = realloc(sc, sizeof(searchConditions) * maxSize);
 
-         for(int i = 0; i < currSize; i++) {
-            strcpy(sc[i].cond, tmpSC[i].cond);
-         }
-      }
-      strcpy(sc[currSize].cond, tmp);
-      currSize++;
-   }
+            for (int i = 0; i < currSize; i++)
+            {
+                strcpy(sc[i].cond, tmpSC[i].cond);
+            }
+        }
+        strcpy(sc[currSize].cond, tmp);
+        currSize++;
+    }
+
+    // Print contents of lines
+    // for(int i = 0; i < linesSize; i++) {
+    //     printf("%d:  %s\n", lines[i]._id, lines[i].data);
+    // }
 
     // Print contents of sc
-    // for(int i = 0; i < currSize; i++) {
+    // for (int i = 0; i < currSize; i++)
+    // {
     //     printf("Cond %d: %s\n", i + 1, sc[i].cond);
     // }
-    // printf("Projections: %s", projections);
+    // printf("Projections: %s\n", projections);
+    // printf("currSize: %d\n", currSize);
+
+    strcpy(operation, Lower(operation)); // Convert the operation type (find/sort) to lower case for comparison in following if statement
+    if (strcmp(operation, "find") == 0)
+    {
+        line *newList = lines;
+
+        if (strcmp(sc[0].cond, "NULL") != 0) // If search conditions were given, perform find function, otherwise, keep original list
+        {
+            newList = matchResults(sc, lines, securityLevel, currSize, linesSize);
+        }
+
+        // Print newList
+        for (int i = 0; i < matchedListIndex; i++)
+        {
+            printf("%d:  %s\n", newList[i]._id, newList[i].data);
+        }
+    }
 
     fclose(file);
 
