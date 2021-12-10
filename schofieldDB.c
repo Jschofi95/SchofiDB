@@ -86,6 +86,46 @@ bool isMatch(char *searchCondition, char *line)
     return false;
 }
 
+void remove_spaces(char *s)
+{
+    char *d = s;
+    do
+    {
+        while (*d == ' ')
+        {
+            ++d;
+        }
+    } while (*s++ = *d++);
+}
+
+void *project(char *p, char *lines, char *s)
+{
+   char retStr[maxLen] = "";
+   for (int i = 0; i < strlen(p); i++)
+   {
+      for (int j = 0; j < strlen(lines); j++)
+      {
+         if (lines[j] == p[i])
+         {
+            strncat(retStr, &lines[j], 1); // Add field name
+            strcat(retStr, ": "); // Add ": "
+
+            char strVal[100] = "";
+            for (int k = 0; k < strlen(lines); k++)
+            {
+               if (isdigit(lines[j + 3 + k]))
+               {
+                  strVal[k] = lines[j + 3 + k];
+               }
+            }
+            strcat(retStr, strVal);
+            strcat(retStr, " ");
+         }
+      }
+   }
+   strcpy(s, retStr);
+}
+
 line *matchResults(searchConditions *sc, line *lines, int classification, size_t scSize, size_t linesSize)
 {
     line *list = malloc(sizeof(line) * 10000);
@@ -262,13 +302,20 @@ int main()
         if (strcmp(sc[0].cond, "NULL") != 0) // If search conditions were given, perform find function, otherwise, keep original list
         {
             newList = matchResults(sc, lines, securityLevel, currSize, linesSize);
+            remove_spaces(projections);
+
+            char result[100] = "";
+            for(int i = 0; i < matchedListIndex; i++) {
+                project(projections, newList[i].data, result);
+                printf("%s\n", result);
+            }
         }
 
         // Print newList
-        for (int i = 0; i < matchedListIndex; i++)
-        {
-            printf("%d:  %s\n", newList[i]._id, newList[i].data);
-        }
+        // for (int i = 0; i < matchedListIndex; i++)
+        // {
+        //     printf("%d:  %s\n", newList[i]._id, newList[i].data);
+        // }
     }
 
     fclose(file);
