@@ -100,30 +100,30 @@ void remove_spaces(char *s)
 
 void *project(char *p, char *lines, char *s)
 {
-   char retStr[maxLen] = "";
-   for (int i = 0; i < strlen(p); i++)
-   {
-      for (int j = 0; j < strlen(lines); j++)
-      {
-         if (lines[j] == p[i])
-         {
-            strncat(retStr, &lines[j], 1); // Add field name
-            strcat(retStr, ": "); // Add ": "
-
-            char strVal[100] = "";
-            for (int k = 0; k < strlen(lines); k++)
+    char retStr[maxLen] = "";
+    for (int i = 0; i < strlen(p); i++)
+    {
+        for (int j = 0; j < strlen(lines); j++)
+        {
+            if (lines[j] == p[i])
             {
-               if (isdigit(lines[j + 3 + k]))
-               {
-                  strVal[k] = lines[j + 3 + k];
-               }
+                strncat(retStr, &lines[j], 1); // Add field name
+                strcat(retStr, ": ");          // Add ": "
+
+                char strVal[100] = "";
+                for (int k = 0; k < strlen(lines); k++)
+                {
+                    if (isdigit(lines[j + 3 + k]))
+                    {
+                        strVal[k] = lines[j + 3 + k];
+                    }
+                }
+                strcat(retStr, strVal);
+                strcat(retStr, " ");
             }
-            strcat(retStr, strVal);
-            strcat(retStr, " ");
-         }
-      }
-   }
-   strcpy(s, retStr);
+        }
+    }
+    strcpy(s, retStr);
 }
 
 line *matchResults(searchConditions *sc, line *lines, int classification, size_t scSize, size_t linesSize)
@@ -192,11 +192,10 @@ int main()
     char *fileName = "data.txt";
     int maxSize = 10; // Maximum allocation for array
     int currSize = 0; // How many elements are in array at a given time
-    line *lines = malloc(sizeof(line) * maxSize);
+    line *lines = malloc(sizeof(line) * maxSize); // Used to store 
     char tmp[maxLen]; // Temporary string used to hold input strings
     char operation[maxLen] = "";
     int securityLevel = -1;
-    bool isFinished = false;
     searchConditions *sc = malloc(sizeof(searchConditions) * maxSize); // Used to store search conditions
     char projections[maxLen] = "";                                     // Used to store fields to project
 
@@ -234,88 +233,191 @@ int main()
         }
         tmpStr[strlen(tmpStr) - 1] = '\0'; // Remove newline character from string
         strcpy(lines[index].data, tmpStr); // Copy string buffer to lines[i].data
-        lines[index]._id = index + 1;      // Set _id for lines[i]
+        lines[index]._id = index;      // Set _id for lines[i]
         currSize++;
         index++;
     }
-
+    
     int linesSize = currSize; // Save size of lines array
 
-    // Reset maxSize and currSize
-    maxSize = 10;
-    currSize = 0;
-
-    fgets(tmp, maxLen, stdin);   // Read find/sort operation
-    tmp[strlen(tmp) - 1] = '\0'; // Remove newline character
-
-    strncpy(operation, tmp, 4); // Store type of operation Find/Sort
-    if (strlen(tmp) > 4)        // If tmp length > 4, then a security level was included. Read the security level
-        securityLevel = tmp[strlen(tmp) - 1] - '0';
-
-    while (fgets(tmp, maxLen, stdin)) // Read search conditions and projections
+    int count = 1;
+    while (1)
     {
+        line *tmpLine = malloc(sizeof(line) * linesSize); // Used to save the original lines list
+        tmpLine = lines;
+
+        // Reset maxSize and currSize
+        maxSize = 10;
+        currSize = 0;
+
+        sc = malloc(sizeof(searchConditions) * maxSize); // Reset search conditions
+        strcpy(projections, ""); // Reset projections
+        strcpy(tmp, ""); // Reset
+
+        fgets(tmp, maxLen, stdin);   // Read find/sort operation
         tmp[strlen(tmp) - 1] = '\0'; // Remove newline character
-        if (strchr(tmp, ';') != NULL)
+
+        strncpy(operation, tmp, 4); // Store type of operation Find/Sort
+        if (strlen(tmp) > 4)        // If tmp length > 4, then a security level was included. Read the security level
+            securityLevel = tmp[strlen(tmp) - 1] - '0';
+
+        while (fgets(tmp, maxLen, stdin)) // Read search conditions and projections
         {
-            tmp[strlen(tmp) - 1] = '\0'; // Remove ';' from end of string
-            strcpy(projections, tmp);
-            break;
-        }
-        if (currSize >= maxSize)
-        { // If sc is filled, double its size
-            searchConditions *tmpSC = malloc(sizeof(searchConditions) * maxSize);
-            maxSize *= 2;
-            for (int i = 0; i < currSize; i++)
+            tmp[strlen(tmp) - 1] = '\0'; // Remove newline character
+            if (strchr(tmp, ';') != NULL)
             {
-                strcpy(tmpSC[i].cond, sc[i].cond);
+                tmp[strlen(tmp) - 1] = '\0'; // Remove ';' from end of string
+                strcpy(projections, tmp);
+                break;
             }
+            if (currSize >= maxSize)
+            { // If sc is filled, double its size
+                searchConditions *tmpSC = malloc(sizeof(searchConditions) * maxSize);
+                maxSize *= 2;
+                for (int i = 0; i < currSize; i++)
+                {
+                    strcpy(tmpSC[i].cond, sc[i].cond);
+                }
 
-            sc = realloc(sc, sizeof(searchConditions) * maxSize);
+                sc = realloc(sc, sizeof(searchConditions) * maxSize);
 
-            for (int i = 0; i < currSize; i++)
-            {
-                strcpy(sc[i].cond, tmpSC[i].cond);
+                for (int i = 0; i < currSize; i++)
+                {
+                    strcpy(sc[i].cond, tmpSC[i].cond);
+                }
             }
+            strcpy(sc[currSize].cond, tmp);
+            currSize++;
         }
-        strcpy(sc[currSize].cond, tmp);
-        currSize++;
-    }
 
-    // Print contents of lines
-    // for(int i = 0; i < linesSize; i++) {
-    //     printf("%d:  %s\n", lines[i]._id, lines[i].data);
-    // }
+        printf("//Query %d\n", count);
 
-    // Print contents of sc
-    // for (int i = 0; i < currSize; i++)
-    // {
-    //     printf("Cond %d: %s\n", i + 1, sc[i].cond);
-    // }
-    // printf("Projections: %s\n", projections);
-    // printf("currSize: %d\n", currSize);
-
-    strcpy(operation, Lower(operation)); // Convert the operation type (find/sort) to lower case for comparison in following if statement
-    if (strcmp(operation, "find") == 0)
-    {
-        line *newList = lines;
-
-        if (strcmp(sc[0].cond, "NULL") != 0) // If search conditions were given, perform find function, otherwise, keep original list
+        strcpy(operation, Lower(operation)); // Convert the operation type (find/sort) to lower case for comparison in following if statement
+        if (strcmp(operation, "find") == 0)
         {
-            newList = matchResults(sc, lines, securityLevel, currSize, linesSize);
-            remove_spaces(projections);
+            line *newList = lines;
 
-            char result[100] = "";
-            for(int i = 0; i < matchedListIndex; i++) {
-                project(projections, newList[i].data, result);
-                printf("%s\n", result);
+            if (strcmp(sc[0].cond, "Z") != 0) // If search conditions were given, perform find function, otherwise, keep original list
+            {
+                newList = matchResults(sc, lines, securityLevel, currSize, linesSize);
+                remove_spaces(projections); // Remove spaces for traversal purposes
+                // Lower(projections); // Convert string to lower case for input simplicity (No output when this is active for some reason)
+
+                if (projections[0] == 'X' || projections[0] == 'x') // If print all is passed (I.E the letter X and only the letter X)
+                {
+                    for (int i = 0; i < matchedListIndex; i++)
+                    {
+                        char result[250] = "";
+                        strcpy(result, "A: ");
+                        char buffer[100] = "";
+                        sprintf(buffer, "%d", newList[i]._id); // Convert _id to a string
+                        strcat(result, buffer);
+                        strcat(result, " ");
+                        strcat(result, newList[i].data);
+                        printf("%s\n", result);
+                    }
+                }
+                else // Print selected fields
+                {
+                    char result[100] = "";
+                    for (int i = 0; i < matchedListIndex; i++)
+                    {
+                        char *pPosition = strchr(projections, 'A'); // Find if 'A' exists in projections
+                        if (pPosition == NULL)
+                        {
+                            project(projections, newList[i].data, result);
+                            printf("%s\n", result);
+                        }
+                        else
+                        {
+                            // Add formatting for _id field in the result
+                            strcpy(result, "A: ");
+                            char buffer[100] = "";
+                            sprintf(buffer, "%d", newList[i]._id); // Convert _id to a string
+                            strcat(result, buffer);
+                            strcat(result, " ");
+
+                            char tmpStr[100] = "";
+                            strcpy(tmpStr, result);
+
+                            project(projections, newList[i].data, result);
+                            strcat(tmpStr, result);
+                            printf("%s\n", tmpStr);
+                        }
+                    }
+                }
+            }
+            else // If no conditions were given
+            {
+                remove_spaces(projections); // Remove spaces for traversal purposes
+                // Lower(projections); // Convert string to lower case for input simplicity (No output when this is active for some reason)
+
+                if (projections[0] == 'X' || projections[0] == 'x') // If print all is passed (I.E the letter X and only the letter X)
+                {
+                    for (int i = 0; i < linesSize; i++)
+                    {
+                        char result[250] = "";
+                        strcpy(result, "A: ");
+                        char buffer[100] = "";
+                        sprintf(buffer, "%d", lines[i]._id); // Convert _id to a string
+                        strcat(result, buffer);
+                        strcat(result, " ");
+                        strcat(result, lines[i].data);
+                        printf("%s\n", result);
+                    }
+                }
+                else // Print selected fields
+                {
+                    char result[100] = "";
+                    for (int i = 0; i < linesSize; i++)
+                    {
+                        char *pPosition = strchr(projections, 'A'); // Find if 'A' exists in projections
+                        if (pPosition == NULL)
+                        {
+                            project(projections, lines[i].data, result);
+                            if (strlen(result) == 0)
+                            {
+                                continue;
+                            }
+                            printf("%s\n", result);
+                        }
+                        else
+                        {
+                            // Add formatting for _id field in the result
+                            strcpy(result, "A: ");
+                            char buffer[100] = "";
+                            sprintf(buffer, "%d", lines[i]._id); // Convert _id to a string
+                            strcat(result, buffer);
+                            strcat(result, " ");
+
+                            char tmpStr[100] = "";
+                            strcpy(tmpStr, result);
+
+                            project(projections, lines[i].data, result);
+                            if (strlen(result) == 0)
+                            {
+                                continue;
+                            }
+                            strcat(tmpStr, result);
+                            printf("%s\n", tmpStr);
+                        }
+                    }
+                }
             }
         }
+        else
+        {
+            printf("Error - No such operation\n");
+        }
 
-        // Print newList
-        // for (int i = 0; i < matchedListIndex; i++)
-        // {
-        //     printf("%d:  %s\n", newList[i]._id, newList[i].data);
+        // printf("PRINTING LINES\n");
+        // for(int i = 0; i < linesSize; i++){
+        //     printf("%d: %s\n",lines[i]._id, lines[i].data);
         // }
+
+        printf("\n");
+        lines = tmpLine;
+        count++;
     }
 
     fclose(file);
