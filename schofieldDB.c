@@ -33,7 +33,7 @@ bool isMatch(char *searchCondition, char *line)
     char fieldName = searchCondition[0];
     char comparisonOp = searchCondition[2];
 
-    char tmpStr[100];                                                  // C < 12
+    char tmpStr[100];
     strncpy(tmpStr, &searchCondition[4], strlen(searchCondition) - 3); // Used to store sub string for value
     int value = atoi(tmpStr);
 
@@ -46,7 +46,6 @@ bool isMatch(char *searchCondition, char *line)
     else
     {
         // printf("No val\n"); // If the field name isnt present, then return
-        //   return false
         return false;
     }
 
@@ -63,9 +62,7 @@ bool isMatch(char *searchCondition, char *line)
             break;
         }
     }
-    // printf("strVal: %s\n", strVal);
     int numVal = atoi(strVal);
-    // printf("numVal: %d, strVal length: %d\n", numVal, strlen(strVal));
 
     switch (comparisonOp)
     {
@@ -131,14 +128,6 @@ line *matchResults(searchConditions *sc, line *lines, int classification, size_t
     line *list = malloc(sizeof(line) * 10000);
     int index = 0;
 
-    // "B: 390 Y: 1 C: 5 D: 1 F: 127700"
-    // "B > 350"
-    // "C < 12"
-
-    // for(int i = 0; i < linesSize; i++){
-    //    printf("%s\n", lines[i].data);
-    // }
-
     for (int i = 0; i < linesSize; i++) // Scan through each line
     {
         bool flag = true;
@@ -187,13 +176,217 @@ line *matchResults(searchConditions *sc, line *lines, int classification, size_t
     return list;
 }
 
+// If line1 > line2 return 0 else return 1
+int compare(char *line1, char *line2, char fieldName)
+{
+    const char *ptr1 = strchr(line1, fieldName); // Get pointer to first occurence of fieldname
+    int index1 = -1;                             // Stores index of first occurence of a field name
+    if (ptr1)
+    {
+        index1 = (ptr1 - line1) + 3; // The field name is present, get the index
+    }
+
+    const char *ptr2 = strchr(line2, fieldName); // Get pointer to first occurence of fieldname
+    int index2 = -1;                             // Stores index of first occurence of a field name
+    if (ptr2)
+    {
+        index2 = (ptr2 - line2) + 3; // The field name is present, get the index
+    }
+
+    char strVal[100] = "";
+    for (int i = 0; i < strlen(line1); i++)
+    {
+        if (isdigit(line1[index1 + i]))
+        {
+            strVal[i] = line1[index1 + i];
+        }
+        else
+        {
+            break;
+        }
+    }
+    int numVal1 = atoi(strVal);
+
+    strcpy(strVal, ""); // Reset strVal
+    for (int i = 0; i < strlen(line2); i++)
+    {
+        if (isdigit(line2[index2 + i]))
+        {
+            strVal[i] = line2[index2 + i];
+        }
+        else
+        {
+            break;
+        }
+    }
+    int numVal2 = atoi(strVal);
+
+    if (numVal1 < numVal2)
+    {
+        return 1;
+    }
+    else if (numVal1 > numVal2)
+    {
+        return 0;
+    }
+
+    return -1;
+}
+
+line *sort(char *field, line *lines, int linesSize)
+{
+    int sortOrder, i, temp, swapped;
+    char fieldName = field[0];
+    line *tmpLines = malloc(sizeof(line) * linesSize); // Used to store lines where the field is present
+    int tmpSize = 0;
+
+    char tmpStr[100];
+    strncpy(tmpStr, &field[4], strlen(field) - 3); // Used to store number for sortOrder
+    sortOrder = atoi(tmpStr);
+
+    for (int i = 0; i < linesSize; i++) // Build new list only with lines that contain the field name
+    {
+        char *pPosition = strchr(lines[i].data, fieldName);
+        if (pPosition != NULL) // If fieldName exists in line
+        {
+            strcpy(tmpLines[i].data, lines[i].data);
+            tmpLines[i]._id = lines[i]._id;
+            tmpSize++;
+        }
+    }
+
+    if (fieldName != 'A')
+    {
+        if (sortOrder == 1) // Ascending
+        {
+            while (1)
+            {
+                swapped = 0;
+                for (i = 0; i < tmpSize - 1; i++)
+                {
+                    if (compare(tmpLines[i].data, tmpLines[i + 1].data, fieldName) == 0)
+                    {
+                        line x; // Used to temporarily store data for swap
+                        strcpy(x.data, tmpLines[i + 1].data);
+                        x._id = tmpLines[i + 1]._id;
+
+                        strcpy(tmpLines[i + 1].data, tmpLines[i].data);
+                        tmpLines[i + 1]._id = tmpLines[i]._id;
+
+                        strcpy(tmpLines[i].data, x.data);
+                        tmpLines[i]._id = x._id;
+                        swapped = 1;
+                    }
+                }
+
+                if (swapped == 0)
+                {
+                    printf("break\n");
+                    break;
+                }
+            }
+        }
+
+        if (sortOrder == -1) // Descending
+        {
+            while (1)
+            {
+                swapped = 0;
+                for (i = 0; i < tmpSize - 1; i++)
+                {
+                    if (compare(tmpLines[i].data, tmpLines[i + 1].data, fieldName) == 1)
+                    {
+                        line x; // Used to temporarily store data for swap
+                        strcpy(x.data, tmpLines[i + 1].data);
+                        x._id = tmpLines[i + 1]._id;
+
+                        strcpy(tmpLines[i + 1].data, tmpLines[i].data);
+                        tmpLines[i + 1]._id = tmpLines[i]._id;
+
+                        strcpy(tmpLines[i].data, x.data);
+                        tmpLines[i]._id = x._id;
+                        swapped = 1;
+                    }
+                }
+
+                if (swapped == 0)
+                {
+                    break;
+                }
+            }
+        }
+    }
+    if (fieldName == 'A')
+    {
+        if (sortOrder == 1)
+        {
+            while (1)
+            {
+                for (i = 0; i < linesSize - 1; i++)
+                {
+                    if (lines[i]._id > lines[i + 1]._id)
+                    {
+                        line x; // Used to temporarily store data for swap
+                        strcpy(x.data, lines[i + 1].data);
+                        x._id = lines[i + 1]._id;
+
+                        strcpy(lines[i + 1].data, lines[i].data);
+                        lines[i + 1]._id = lines[i]._id;
+
+                        strcpy(lines[i].data, x.data);
+                        lines[i]._id = x._id;
+                        swapped = 1;
+                    }
+                }
+                if (swapped == 0)
+                {
+                    break;
+                }
+            }
+        }
+        if (sortOrder == -1)
+        {
+            while (1)
+            {
+                for (i = 0; i < linesSize - 1; i++)
+                {
+                    if (lines[i]._id < lines[i + 1]._id)
+                    {
+                        line x; // Used to temporarily store data for swap
+                        strcpy(x.data, lines[i + 1].data);
+                        x._id = lines[i + 1]._id;
+
+                        strcpy(lines[i + 1].data, lines[i].data);
+                        lines[i + 1]._id = lines[i]._id;
+
+                        strcpy(lines[i].data, x.data);
+                        lines[i]._id = x._id;
+                        swapped = 1;
+                    }
+                }
+                if (swapped == 0)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    if (fieldName == 'A')
+    {
+        return lines;
+    }
+
+    return tmpLines;
+}
+
 int main()
 {
     char *fileName = "data.txt";
-    int maxSize = 10; // Maximum allocation for array
-    int currSize = 0; // How many elements are in array at a given time
-    line *lines = malloc(sizeof(line) * maxSize); // Used to store 
-    char tmp[maxLen]; // Temporary string used to hold input strings
+    int maxSize = 10;                             // Maximum allocation for array
+    int currSize = 0;                             // How many elements are in array at a given time
+    line *lines = malloc(sizeof(line) * maxSize); // Used to store
+    char tmp[maxLen];                             // Temporary string used to hold input strings
     char operation[maxLen] = "";
     int securityLevel = -1;
     searchConditions *sc = malloc(sizeof(searchConditions) * maxSize); // Used to store search conditions
@@ -233,13 +426,12 @@ int main()
         }
         tmpStr[strlen(tmpStr) - 1] = '\0'; // Remove newline character from string
         strcpy(lines[index].data, tmpStr); // Copy string buffer to lines[i].data
-        lines[index]._id = index;      // Set _id for lines[i]
+        lines[index]._id = index;          // Set _id for lines[i]
         currSize++;
         index++;
     }
-    
-    int linesSize = currSize; // Save size of lines array
 
+    int linesSize = currSize; // Save size of lines array
     int count = 1;
     while (1)
     {
@@ -251,14 +443,16 @@ int main()
         currSize = 0;
 
         sc = malloc(sizeof(searchConditions) * maxSize); // Reset search conditions
-        strcpy(projections, ""); // Reset projections
-        strcpy(tmp, ""); // Reset
+        strcpy(projections, "");                         // Reset projections
+        strcpy(tmp, "");                                 // Reset
+        securityLevel = -1;
 
         fgets(tmp, maxLen, stdin);   // Read find/sort operation
         tmp[strlen(tmp) - 1] = '\0'; // Remove newline character
 
-        strncpy(operation, tmp, 4); // Store type of operation Find/Sort
-        if (strlen(tmp) > 4)        // If tmp length > 4, then a security level was included. Read the security level
+        strncpy(operation, tmp, 4);          // Store type of operation Find/Sort
+        strcpy(operation, Lower(operation)); // Convert the operation type (find/sort) to lower case for comparison
+        if (strlen(tmp) > 4)                 // If tmp length > 4, then a security level was included. Read the security level
             securityLevel = tmp[strlen(tmp) - 1] - '0';
 
         while (fgets(tmp, maxLen, stdin)) // Read search conditions and projections
@@ -266,7 +460,11 @@ int main()
             tmp[strlen(tmp) - 1] = '\0'; // Remove newline character
             if (strchr(tmp, ';') != NULL)
             {
-                tmp[strlen(tmp) - 1] = '\0'; // Remove ';' from end of string
+                tmp[strlen(tmp) - 1] = '\0';          // Remove ';' from end of string
+                if ((strcmp(operation, "sort") == 0)) // If sort is selected, then there are no projections, add to sc[0]
+                {
+                    strcpy(sc[0].cond, tmp);
+                }
                 strcpy(projections, tmp);
                 break;
             }
@@ -292,7 +490,6 @@ int main()
 
         printf("//Query %d\n", count);
 
-        strcpy(operation, Lower(operation)); // Convert the operation type (find/sort) to lower case for comparison in following if statement
         if (strcmp(operation, "find") == 0)
         {
             line *newList = lines;
@@ -403,6 +600,30 @@ int main()
                         }
                     }
                 }
+            }
+        }
+        else if (strcmp(operation, "sort") == 0)
+        {
+            sc[0].cond[strlen(sc[0].cond)] = '\0';
+
+            printf("//Query %d\n", count);
+            if (sc[0].cond[0] == 'A')
+            {
+                printf("Not working\n");
+                continue;
+            }
+
+
+            line *newList = malloc(sizeof(line) * 10000);
+            newList = sort(sc[0].cond, lines, linesSize);
+
+            for (int i = 0; i < linesSize; i++)
+            {
+                if (strlen(newList[i].data) == 0)
+                {
+                    continue;
+                }
+                printf("%s\n", newList[i].data);
             }
         }
         else
